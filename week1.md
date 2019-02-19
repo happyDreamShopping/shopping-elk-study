@@ -19,6 +19,6 @@
 ### 공유 사항
 
 - ES cluster 접속정보: *스터디그룹 톡으로 공유드리겠습니다.*
-
+- GitHub org 생성(https://github.com/shopelk)
 
 
