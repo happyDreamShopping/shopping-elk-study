@@ -153,17 +153,15 @@ ex) 기존엔 `product_id` 필드만 있는 매핑에 `name` 이란 필드의 �
 ````js
 PUT shopping_products-190303/_doc/_mapping?ignore_unavailable=true
 {
-  "mappings": {
-    "_doc": {
-      "properties": {
-        "product_id": {
-          "type": "keyword",
-          "store": true
-        },
-        "name": {
-          "type": "text",
-          "store": true
-        }
+  "_doc": {
+    "properties": {
+      "product_id": {
+        "type": "keyword",
+        "store": true
+      },
+      "name": {
+        "type": "text",
+        "store": true
       }
     }
   }
