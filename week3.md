@@ -87,7 +87,7 @@ PUT shopping_products-190303
 ````
 
 * **number_of_shards**: 색인 시 생성할 샤드 개수. 기본값은 5이다.
-ES 의 Shard 는 1개의 Lucene Index 인데, LUCENE-5483 에 의하면 1개의 Lucene index 는 최대 약 21억개 (`Integer.MAX_VALUE - 128`)의 문서를 저장할 수 8있다 ([참고](https://www.elastic.co/guide/en/elasticsearch/reference/6.2/_basic_concepts.html#getting-started-shards-and-replicas))
+ES 의 Shard 는 1개의 Lucene Index 인데, LUCENE-5483 에 의하면 1개의 Lucene index 는 최대 약 21억개 (`Integer.MAX_VALUE - 128`)의 문서를 저장할 수 있다 ([참고](https://www.elastic.co/guide/en/elasticsearch/reference/6.2/_basic_concepts.html#getting-started-shards-and-replicas))
 * **number_of_replicas**: 복제본 개수. 기본값은 1이며, 최소 1개 이상을 권장한다.
 
 <br>
