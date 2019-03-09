@@ -389,3 +389,188 @@ PUT test-190214/_settings
 ![image](https://user-images.githubusercontent.com/20942871/53695479-8b07a680-3dff-11e9-9cd8-c9a16ba9b740.png)
 
 
+<br>
+
+## 11. 인덱스 및 타입 존재 여부 확인
+인덱스가 존재하는지를 검사한다.
+
+curl 로 요청시 -I 옵션으로 HEAD 프로토콜 요청이 가능하다.
+````curl
+curl -I http://localhost:9200/shopping_products-190303
+````
+![image](https://user-images.githubusercontent.com/20942871/54072457-5c397680-42be-11e9-9665-9e6e838a097e.png)
+
+인덱스가 존재 시 20X, 없으면 404 코드를 반환함
+
+<br>
+
+## 12. 인덱스 settings 관리
+샤딩, 레플리카, 캐시, 라우팅 등의 각종 설정을 제어할 수 있는 기능이므로 반드시 익혀놓는 것이 중요하다.
+
+주로 사용하는 몇가지 설정을 예로 들면 아래와 같다.
+````js
+PUT shopping_products-190303/_settings
+{
+  "settings": {
+    "index.number_of_replicas": 1,  // replica 개수
+    "index.refresh_interval": "-1", // 인덱스 refresh 주기
+    "index.routing.allocation.require.box_type": "hot",  // hot/warm 아키텍쳐에서 어떤 타입의 노드에 색인할 것인지 지정
+    "index.blocks.read_only": null,  // 읽기 전용 설정 & 디스크 full 로 인해 읽기전용이 된 경우 이 값을 null 로 바꿔 해제
+    "index.routing.allocation.exclude._name": "*warm*", // 특정 노드에 색인을 안 하고 싶을 때 지정
+    "index.max_result_window": 50000,  // 한번에 가져올 수 있는 문서 수 설정 (기본: 10000)
+    "index.auto_expand_replicas": "0-5" // 지정한 범위 내에서 replica 를 자동으로 조정
+  }
+}
+````
+
+더 많은 옵션은 [index modules](https://www.elastic.co/guide/en/elasticsearch/reference/current/index-modules.html) 를 참고한다.
+
+
+
+<br>
+
+## 13. 인덱스 alias
+1개 이상의 인덱스들을 하나로 묶어서 다룰 수 있게 해주는 기능이다.
+
+인덱스를 직접 사용하기 보다는 alias 를 이용하여 검색 등의 서비스를 적용하는 것을 권장한다.
+
+예를들어 products 라는 서비스중인 인덱스가 있는데, 이 인덱스를 전체 재 색인 해야된다고 하자.
+
+만약 소스코드에서 products 라는 인덱스를 직접 참조하고 있으면 작업이 끝날 때 까지 서비스가 제대로 되지 않을 수 있다.
+
+이런 경우 인덱스는 shopping_products-190308 와 같이 생성하고, products 라는 alias 를 두면, 새롭게 shopping_products-190309 를 전체 색인하고 alias 만 갈아주면 downtime 없이 서비스에 반영할 수 있다.
+
+<br>
+
+alias 조회 및 생성 관련 예시는 아래와 같다.
+
+````js
+// alias 조회
+GET _cat/aliases?v
+GET _cat/aliases?v&alias=products
+
+// alias 추가
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "indices": [
+          "new_shopping_products-*",
+          "shopping_products-190303"
+        ],
+        "alias": "products"
+      }
+    }
+  ]
+}
+````
+
+
+alias 삭제는 인덱스 삭제처럼 하면 alias 에 포함된 모든 인덱스가 삭제되므로 반드시 아래와 같이 해야된다!
+
+````js
+DELETE */_alias/products
+
+POST _aliases
+{
+  "actions": [
+    {
+      "remove": {
+        "index": "*",
+        "aliases" : [
+          "alias_name"
+        ]
+      }
+    }
+  ]
+}
+````
+
+<br>
+
+## 14. 인덱스 roll over
+alias 에 포함된 인덱스 중 특정 조건을 충족하는 인덱스를 빼고, alias 가 새로운 인덱스를 바라보게 하는 기능이다.
+
+**단, alias 에 1개의 인덱스만 연결되어 있어야 하며, 값을 증가시킬 수 있는 패턴이 존재해야 한다.**
+
+ex) shopping_logs-000001
+
+Java 의 logback 에서 RollingFileAppender 와 Shell 의 LogRotate 와 유사하게 사용된다.
+
+아래와 같은 동작 시나리오를 볼 수 있다.
+1. shopping_logs 라는 alias 를 사용하여 색인 맟 조회를 진행한다.
+2. 로그는 분 단위로 관리하므로 1분이 지난 로그는 굳이 보여주지 않아도 된다.
+
+````js
+// 1개의 인덱스를 alias 에 연결
+PUT shopping_logs-000001
+{
+  "aliases": {
+    "shopping_logs": {}
+  }
+}
+
+// rollover 생성 및 적용
+POST shopping_logs/_rollover
+{
+  "conditions": {
+    "max_age": "1m"
+  }
+}
+````
+
+1. 처음 적용 후
+![image](https://user-images.githubusercontent.com/20942871/54073381-c1469980-42c9-11e9-9c19-12fe29873517.png)
+
+2. 1분 뒤 rollup 적용 결과
+![image](https://user-images.githubusercontent.com/20942871/54073395-e935fd00-42c9-11e9-9b5e-3b7b887c53c7.png)
+
+3. 다시 1분 뒤 rollup 적용 결과
+![image](https://user-images.githubusercontent.com/20942871/54073406-07036200-42ca-11e9-8800-b850d1b6e1d8.png)
+
+
+단, conditions 에 명시된 조건들은 AND 조건으로 작동한다.
+
+**또한 rollover 는 자동으로 되지 않고 필요 시 마다 호출해야 한다.**
+
+
+
+<br>
+
+## 15. Document 색인
+
+
+
+<br>
+
+## 16. Document 조회
+
+
+
+<br>
+
+## 17. Document 삭제
+
+
+
+<br>
+
+## 18. Document 업데이트
+
+
+
+<br>
+
+## 19. Bulk API (원자성 작업 속도 향상)
+
+
+
+<br>
+
+## 20. MultiGet API (GET 작업 속도 향상)
+
+
+
+
+<br>
