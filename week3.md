@@ -389,3 +389,442 @@ PUT test-190214/_settings
 ![image](https://user-images.githubusercontent.com/20942871/53695479-8b07a680-3dff-11e9-9cd8-c9a16ba9b740.png)
 
 
+<br>
+
+## 11. 인덱스 및 타입 존재 여부 확인
+인덱스가 존재하는지를 검사한다.
+
+curl 로 요청시 -I 옵션으로 HEAD 프로토콜 요청이 가능하다.
+````curl
+curl -I http://localhost:9200/shopping_products-190303
+````
+![image](https://user-images.githubusercontent.com/20942871/54072457-5c397680-42be-11e9-9665-9e6e838a097e.png)
+
+인덱스가 존재 시 20X, 없으면 404 코드를 반환함
+
+<br>
+
+## 12. 인덱스 settings 관리
+샤딩, 레플리카, 캐시, 라우팅 등의 각종 설정을 제어할 수 있는 기능이므로 반드시 익혀놓는 것이 중요하다.
+
+주로 사용하는 몇가지 설정을 예로 들면 아래와 같다.
+````js
+PUT shopping_products-190303/_settings
+{
+  "settings": {
+    "index.number_of_replicas": 1,  // replica 개수
+    "index.refresh_interval": "-1", // 인덱스 refresh 주기
+    "index.routing.allocation.require.box_type": "hot",  // hot/warm 아키텍쳐에서 어떤 타입의 노드에 색인할 것인지 지정
+    "index.blocks.read_only": null,  // 읽기 전용 설정 & 디스크 full 로 인해 읽기전용이 된 경우 이 값을 null 로 바꿔 해제
+    "index.routing.allocation.exclude._name": "*warm*", // 특정 노드에 색인을 안 하고 싶을 때 지정
+    "index.max_result_window": 50000,  // 한번에 가져올 수 있는 문서 수 설정 (기본: 10000)
+    "index.auto_expand_replicas": "0-5" // 지정한 범위 내에서 replica 를 자동으로 조정
+  }
+}
+````
+
+더 많은 옵션은 [index modules](https://www.elastic.co/guide/en/elasticsearch/reference/current/index-modules.html) 를 참고한다.
+
+
+
+<br>
+
+## 13. 인덱스 alias
+1개 이상의 인덱스들을 하나로 묶어서 다룰 수 있게 해주는 기능이다.
+
+인덱스를 직접 사용하기 보다는 alias 를 이용하여 검색 등의 서비스를 적용하는 것을 권장한다.
+
+예를들어 products 라는 서비스중인 인덱스가 있는데, 이 인덱스를 전체 재 색인 해야된다고 하자.
+
+만약 소스코드에서 products 라는 인덱스를 직접 참조하고 있으면 작업이 끝날 때 까지 서비스가 제대로 되지 않을 수 있다.
+
+이런 경우 인덱스는 shopping_products-190308 와 같이 생성하고, products 라는 alias 를 두면, 새롭게 shopping_products-190309 를 전체 색인하고 alias 만 갈아주면 downtime 없이 서비스에 반영할 수 있다.
+
+<br>
+
+alias 조회 및 생성 관련 예시는 아래와 같다.
+
+````js
+// alias 조회
+GET _cat/aliases?v
+GET _cat/aliases?v&alias=products
+
+// alias 추가
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "indices": [
+          "new_shopping_products-*",
+          "shopping_products-190303"
+        ],
+        "alias": "products"
+      }
+    }
+  ]
+}
+````
+
+
+alias 삭제는 인덱스 삭제처럼 하면 alias 에 포함된 모든 인덱스가 삭제되므로 반드시 아래와 같이 해야된다!
+
+````js
+DELETE */_alias/products
+
+POST _aliases
+{
+  "actions": [
+    {
+      "remove": {
+        "index": "*",
+        "aliases" : [
+          "alias_name"
+        ]
+      }
+    }
+  ]
+}
+````
+
+<br>
+
+## 14. 인덱스 roll over
+alias 에 포함된 인덱스 중 특정 조건을 충족하는 인덱스를 빼고, alias 가 새로운 인덱스를 바라보게 하는 기능이다.
+
+**단, alias 에 1개의 인덱스만 연결되어 있어야 하며, 값을 증가시킬 수 있는 패턴이 존재해야 한다.**
+
+ex) shopping_logs-000001
+
+Java 의 logback 에서 RollingFileAppender 와 Shell 의 LogRotate 와 유사하게 사용된다.
+
+아래와 같은 동작 시나리오를 볼 수 있다.
+1. shopping_logs 라는 alias 를 사용하여 색인 맟 조회를 진행한다.
+2. 로그는 분 단위로 관리하므로 1분이 지난 로그는 굳이 보여주지 않아도 된다.
+
+````js
+// 1개의 인덱스를 alias 에 연결
+PUT shopping_logs-000001
+{
+  "aliases": {
+    "shopping_logs": {}
+  }
+}
+
+// rollover 생성 및 적용
+POST shopping_logs/_rollover
+{
+  "conditions": {
+    "max_age": "1m"
+  }
+}
+````
+
+1. 처음 적용 후
+
+![image](https://user-images.githubusercontent.com/20942871/54073381-c1469980-42c9-11e9-9c19-12fe29873517.png)
+
+2. 1분 뒤 rollup 적용 결과
+
+![image](https://user-images.githubusercontent.com/20942871/54073395-e935fd00-42c9-11e9-9b5e-3b7b887c53c7.png)
+
+3. 다시 1분 뒤 rollup 적용 결과
+
+![image](https://user-images.githubusercontent.com/20942871/54073406-07036200-42ca-11e9-8800-b850d1b6e1d8.png)
+
+
+단, conditions 에 명시된 조건들은 AND 조건으로 작동한다.
+
+**또한 rollover 는 자동으로 되지 않고 필요 시 마다 호출해야 한다.**
+
+
+
+<br>
+
+## 15. Document 색인
+말 그대로 문서를 인덱싱 하는 것이다.
+
+한가지 알아두어야 할 점은 Elasticsearch의 핵심인 Lucene 에선 문서의 추가와 문서의 변경은 동일한 비용이 소모된다.
+
+즉, 결국 ES 와 Lucene에서 문서의 update 는 replace 이다.
+
+
+사용 가능한 색인 REST API 형식은 아래와 같다.
+````js
+POST index_name/{type}
+POST/PUT index_name/{type}/{id}
+POST/PUT index_name/{type}/{id}/_create
+````
+
+만약 id 를 별도로 지정하지 않았다면 랜덤 생성된 id 값을 사용한다.
+
+단, id 값은 데이터 tree의 성능 향상을 위해 문자 길이가 같은것이 좋다.
+
+또한 id 값이 중복되면 문서가 덮어씌워지므로 (replace) 주의해야 한다.
+
+오히려 이를 이용하여 중복 문서를 제거하는 방식으로도 사용 가능하다.
+
+<br>
+
+색인과 관련된 대표적인 옵션들은 아래와 같다.
+* routing: 문서가 어떤 샤드에 색인될 것인지를 지정한다.
+`POST test-190310/_doc?routing=1`
+* parent: child document 의 parent 를 정의한 뒤, 이 값을 사용해 routing을 적용한다. 매핑에 반드시 parent 객체를 지정해야 한다.
+`POST test-190310/_doc?parent=10`
+* op_type: operation type 을 강제로 지정하여, 해당 타입 이외엔 실행되지 않도록 하는 것이다.
+예를들어 `create` 로 지정했는데, 이미 해당 문서가 있으면 예외가 발생된다.
+    * create: 문서의 신규 생성
+    * index: 문서의 신규 생성 또는 update
+* version: 색인 대상 문서의 최종 버전값과 지정한 버전 값이 일치할 때만 색인을 수행한다.
+일종의 [Optimistic Lock](http://www.dbguide.net/db.db?cmd=view&boardUid=13862&boardConfigUid=9&boardIdx=81&boardStep=1) 을 적용하는 방식이다.
+* refresh: document 색인 후 강제로 새로고침을 하여 색인 직후 검색에 반영되게 한다.
+GET API 의 경우 새로고침 없이 즉시 검색을 할 수 있다.
+`POST test-190310/_doc?refresh=true`
+* timeout: primary shard 가 사용가능해질 때 까지의 대기시간을 설정한다.
+`POST test-190310/_doc?timeout=10m`
+
+
+색인 예시는 아래와 같다.
+
+````js
+// ID 지정 없이 색인
+POST test-190310/_doc
+{
+  "name": "test"
+}
+
+// ID 지정하여 색인
+POST test-190310/_doc/0
+{
+  "name": "test0"
+}
+
+// operation type 으로 제어
+POST test-190310/_doc/0?op_type=create
+{
+  "name": "test0"
+}
+POST test-190310/_doc/0?op_type=index
+{
+  "name": "test1"
+}
+
+// version 으로 제어
+POST test-190310/_doc/0?version=1
+{
+  "name": "test2"
+}
+
+````
+
+<br>
+
+## 16. Document 조회
+색인된 문서를 조회하는 기능으로, GET API 를 이용한 조회는 refresh 없이 그 즉시 조회가 가능하다.
+
+특히 ES 가 다른 오버헤드 없이 document 가 존재하는 shards 에만 검색을 리디렉션하고, id 값은 캐싱되어 있는 경우가 많으므로 속도가 매우 빠르다.
+
+GET 요청에 사용가능한 대표적인 옵션들은 아래와 같다.
+* stored_fields: 결과에 지정한 필드들만 보여줄 수 있다. 네트워크 대역폭 사용을 줄여야 하는 경우 등에 유용하다.
+단, 매핑 시 stored 값이 true 인 경우만 가능하다.
+`GET shopping_products-190303/_doc/0?stored_fields=price`
+* routing: GET 작업 시 사용할 샤드 번호를 지정한다.
+`GET shopping_products-190303/_doc/0?routing=1`
+* refresh: 검색 전 현재 샤드를 새로고침 한다. 색인이 느려지고 오버헤드가 발생하므로 신중히 사용해야 한다.
+`GET shopping_products-190303/_doc/0?refresh=true`
+* \_source: 원본 문서만 반환한다.
+`GET shopping_products-190303/_doc/0/_source`
+
+
+GET 을 이용한 조회 예시는 아래와 같다.
+
+````js
+GET {index}/{type}/{id}
+GET test-190310/_doc/0
+
+## 기본 검색 방법
+GET shopping_products-190303/_doc/0
+
+## 특정 필드만 반환
+GET shopping_products-190303/_doc/0?stored_fields=price
+
+## routing
+GET shopping_products-190303/_doc/0?routing=0
+
+## refresh
+GET shopping_products-190303/_doc/0?refresh=true
+
+## 문서만 반환
+GET shopping_products-190303/_doc/0/_source
+````
+
+<br>
+
+## 17. Document 삭제
+
+ES 에 저장된 문서를 삭제한다. 삭제 방법으로는 인덱스 자체를 날려버리는 `DELETE` 방법과, 쿼리 결과만 삭제하는 `delete_by_query` 가 있다.
+
+어떤 삭제 방법이던 한번 삭제된 문서는 절대 복구할 수 없으므로 신중해야 한다.
+
+삭제 예시는 아래와 같다.
+
+````js
+// 인덱스 삭제
+DELETE test_index
+
+// 쿼리 결과만 삭제
+POST test_index/_delete_by_query
+{
+  "query": {
+    "bool": {
+      "filter": {
+        "term": {
+          "name": "test"
+        }
+      }
+    }
+  }
+}
+````
+
+<br>
+
+## 18. Document 업데이트
+
+색인된 문서를 update 하는 방법은 크게 새 document 를 추가하여 덮어씌워 버리거나, update 호출을 하는 방법으로 나뉜다.
+
+새 document 를 추가하는 것은 말 그대로 id 를 동일하게 지정하여 replace 하는 방식이다.
+
+반면 update 호출은 아래의 2가지 방법으로 나뉜다.
+1. painless 와 같은 script 사용 (`_update`, `_update_by_query`)
+2. doc 쿼리를 사용하여 기존 문서와 병합되야 하는 문서 제공
+
+업데이트의 예제는 아래와 같다.
+
+````js
+// 샘플 문서
+PUT shopping_products-190310/_doc/0
+{
+  "name": "핸드폰",
+  "price": 1000000,
+  "id": "1111",
+  "checker": "occidere"
+}
+
+// 값을 덮어씌워서 업데이트
+PUT shopping_products-190310/_doc/0
+{
+  "name": "핸드폰",
+  "price": 1200000,
+  "id": "1111",
+  "checker": "occidere"
+}
+
+// 값 10만원 할인
+POST shopping_products-190310/_doc/0/_update
+{
+  "script": {
+    "lang": "painless",
+    "source": "ctx._source.price -= params.discount",
+    "params": {
+      "discount": 100000
+    }
+  }
+}
+
+// id 변경
+POST shopping_products-190310/_update_by_query
+{
+  "query": {
+    "bool": {
+      "filter": {
+        "term": {
+          "id": "1111"
+        }
+      }
+    }
+  },
+  "script": {
+    "lang": "painless",
+    "source": "ctx._source.id = \"1234\""
+  }
+}
+
+// 스크립트 사용하지 않고 값을 덮어씌우는 방식
+POST shopping_products-190310/_doc/0/_update
+{
+  "doc": {
+    "category": "computers"
+  },
+  "doc_as_upsert": true  // true 면 문서가 없을 때 insert 로 
+}
+````
+
+이와같은 update 는 아래와 같은 장점이 있다.
+* client 의 데이터 round trip 이 없어 대역폭 사용이 줄어 네트워크 부하가 낮고 처리 속도가 높다.
+* 자동적으로 Optimistic concurrent control 이 적용되어 안전하다. 스크립트 실행에서 변경이 발생하면 스크립트는 데이터 업데이트를 다시 실행한다.
+* bulk 수행이 가능하다.
+
+
+
+<br>
+
+## 19. Bulk API (원자성 작업 속도 향상)
+
+다량의 document 를 추가/삭제/변경 시 매번 Rest API 호출을 하는 것은 네트워크 부하가 높다.
+
+따라서 한번에 여러 요청을 전송하여 네트워크 부하를 줄이고 속도를 높이는데 사용되는 것이 Bulk API 이다.
+
+기본적으로 Rest API 를 사용하는 ES Client Library 는 자동으로 bulk 명령의 serialize 를 지원한다.
+
+Bulk API 의 구조는 아래와 같다.
+
+````js
+POST bulk_test/_doc/_bulk
+{"index": {"_id": "0"}}
+{"name": "test0"}
+{"create": {"_id": "1"}}
+{"name": "test1"}
+{"delete": {"_id": "1"}}
+{"update": {"_id": "0"}}
+{"doc": {"name": "test000", "count": 100}}
+
+GET bulk_test/_search
+````
+
+다만 유의해야 할 점은, 기본적으로 ES 에선 HTTP 호출이 100MB 이상이 되면 에러가 발생한다. (`413 Request Entity Too Large`)
+* ES Team member 는 5MB 이하로 요청하는 것을 권장함 [Request Entity Too Large Exception](https://discuss.elastic.co/t/request-entity-too-large-exception/105987/2)
+
+또한 적은 문서들을 bulk 요청하는 것은 오히려 성능이 더 안좋게 나올 수 있다.
+
+
+
+<br>
+
+## 20. MultiGet API (GET 작업 속도 향상)
+
+여러 GET 요청을 한번에 실행하는 단축 작업이다.
+
+이 역시 bulk API 와 마찬가지로 네트워크 부하를 감소시킨다는 이점이 있다.
+
+MultiGet API 의 예시는 아래와 같다.
+
+````js
+GET _mget
+{
+  "docs" : [
+    {
+      "_index": "bulk_test",
+      "_id" : "0",
+      "_source": ["name", "count"]
+    },
+    {
+      "_index": "shopping_products-190303",
+      "_id" : "0"
+    }
+  ]
+}
+````
+
+
+<br>
