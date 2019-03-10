@@ -521,12 +521,15 @@ POST shopping_logs/_rollover
 ````
 
 1. 처음 적용 후
+
 ![image](https://user-images.githubusercontent.com/20942871/54073381-c1469980-42c9-11e9-9c19-12fe29873517.png)
 
 2. 1분 뒤 rollup 적용 결과
+
 ![image](https://user-images.githubusercontent.com/20942871/54073395-e935fd00-42c9-11e9-9b5e-3b7b887c53c7.png)
 
 3. 다시 1분 뒤 rollup 적용 결과
+
 ![image](https://user-images.githubusercontent.com/20942871/54073406-07036200-42ca-11e9-8800-b850d1b6e1d8.png)
 
 
