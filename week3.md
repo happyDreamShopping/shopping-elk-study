@@ -826,5 +826,6 @@ GET _mget
 }
 ````
 
+Single Get with loop VS MultiGet 성능 비교: https://github.com/occidere/notepad/issues/76
 
 <br>
