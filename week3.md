@@ -768,13 +768,60 @@ POST shopping_products-190310/_doc/0/_update
 
 ## 19. Bulk API (원자성 작업 속도 향상)
 
+다량의 document 를 추가/삭제/변경 시 매번 Rest API 호출을 하는 것은 네트워크 부하가 높다.
+
+따라서 한번에 여러 요청을 전송하여 네트워크 부하를 줄이고 속도를 높이는데 사용되는 것이 Bulk API 이다.
+
+기본적으로 Rest API 를 사용하는 ES Client Library 는 자동으로 bulk 명령의 serialize 를 지원한다.
+
+Bulk API 의 구조는 아래와 같다.
+
+````js
+POST bulk_test/_doc/_bulk
+{"index": {"_id": "0"}}
+{"name": "test0"}
+{"create": {"_id": "1"}}
+{"name": "test1"}
+{"delete": {"_id": "1"}}
+{"update": {"_id": "0"}}
+{"doc": {"name": "test000", "count": 100}}
+
+GET bulk_test/_search
+````
+
+다만 유의해야 할 점은, 기본적으로 ES 에선 HTTP 호출이 100MB 이상이 되면 에러가 발생한다. (`413 Request Entity Too Large`)
+* ES Team member 는 5MB 이하로 요청하는 것을 권장함 [Request Entity Too Large Exception](https://discuss.elastic.co/t/request-entity-too-large-exception/105987/2)
+
+또한 적은 문서들을 bulk 요청하는 것은 오히려 성능이 더 안좋게 나올 수 있다.
+
 
 
 <br>
 
 ## 20. MultiGet API (GET 작업 속도 향상)
 
+여러 GET 요청을 한번에 실행하는 단축 작업이다.
 
+이 역시 bulk API 와 마찬가지로 네트워크 부하를 감소시킨다는 이점이 있다.
+
+MultiGet API 의 예시는 아래와 같다.
+
+````js
+GET _mget
+{
+  "docs" : [
+    {
+      "_index": "bulk_test",
+      "_id" : "0",
+      "_source": ["name", "count"]
+    },
+    {
+      "_index": "shopping_products-190303",
+      "_id" : "0"
+    }
+  ]
+}
+````
 
 
 <br>
