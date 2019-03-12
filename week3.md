@@ -829,3 +829,6 @@ GET _mget
 Single Get with loop VS MultiGet 성능 비교: https://github.com/occidere/notepad/issues/76
 
 <br>
+
+## 참고
+* 스터디 쿼리 샘플: https://gist.github.com/occidere/38a7bbf1d1775533e7a6cf26b15b4bba
