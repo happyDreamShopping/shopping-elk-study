@@ -143,3 +143,82 @@ GET mall/_search
     - sum
     - avg
     - median 
+
+## 하이라이팅
+
+- 본문 중 검색어를 하이라이팅해주는 기능이 있음. 
+
+```json
+GET /_search
+{
+    "query" : {
+        "match": { "content": "kimchy" }
+    },
+    "highlight" : {
+        "fields" : {
+            "content" : {}
+        }
+    }
+}
+```
+
+- 필드 중
+- 어떤 필드를 하이라이트 할것인지 명시해줌 
+
+### 하이라이터의 종류 
+
+세 가지가 있다. 
+
+- unified
+- plain
+- fast vector
+
+### 검색어 외에 다른 하이라이트를 주고 싶을 경우
+
+- 하이라이트 쿼리 파라미터를 주면 된다.
+
+```json
+GET /_search
+{
+    "stored_fields": [ "_id" ],
+    "query" : {
+        "match": {
+            "comment": {
+                "query": "foo bar"
+            }
+        }
+    },
+
+    "highlight" : {
+        "order" : "score",
+        "fields" : {
+            "comment" : {
+                "fragment_size" : 150,
+                "number_of_fragments" : 3,
+                "highlight_query": {
+                    "bool": {
+                        "must": {
+                            "match": {
+                                "comment": {
+                                    "query": "foo bar"
+                                }
+                            }
+                        },
+                        "should": {
+                            "match_phrase": {
+                                "comment": {
+                                    "query": "foo bar",
+                                    "slop": 1,
+                                    "boost": 10.0
+                                }
+                            }
+                        },
+                        "minimum_should_match": 0
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
