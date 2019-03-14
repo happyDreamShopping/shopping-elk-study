@@ -328,5 +328,66 @@ GET mall/_search?scroll=10m
 
 **답은 서치 애프터 이다.**
 
+```json
+GET mall/_search
+{
+  "query" : {
+    "match_all": {}
+  },
+  "sort": [
+    {
+      "mall_bno": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+```
+
+**Response**
+
+```json
+  "regm_stat_cd": "M17002",
+          "mall_url": "https://smartstore.naver.com/globalshoppings",
+          "mls_mall_yn": "N",
+          "npay_yn": "Y",
+          "mall_bno": "c3930227",
+          "@timestamp": "2019-02-25T01:21:50.274Z",
+          "mall_id": "globalshoppingmall"
+        },
+        "sort": [
+          "c3930227"
+        ]
+```
+
+- ```sort``` : 다음 search_after 요청에서 사용할 정렬 키 값. 
+
+**다음 요청**
+
+```json
+GET mall/_search
+{
+  "query" : {
+    "match_all": {}
+  },
+  "search_after" : ["c3930227"],
+  "sort": [
+    {
+      "mall_bno": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+```
+
+### 실제 사용해본 경험
+
+- ****의 페이지네이션에 적용해보려고 시도함.
+- 좋음.
+- 코드가 매우 지저분해짐 
+- 이걸 나이스하게 추상화해서 풀어보고 싶다.
+    - elasticsearch 프로젝트 같이 하실 분 모집. 
+
 
 
