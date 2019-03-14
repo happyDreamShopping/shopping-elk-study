@@ -16,6 +16,7 @@
 - 올바른 쿼리 제안
 - 매치된 결과 카운트
 - explain 쿼리
+- ```match_all```, ```boolean``` 
 
 ## 검색 기본
 
@@ -221,4 +222,111 @@ GET /_search
     }
 }
 ```
+
+## Scroll API / Search-After 
+
+### ES 강습회에 가서 들었던 말 
+
+김종민님이 하신 말씀입니다. 
+
+> 검색엔진은 페이지네이션을 위한 도구가 아니에요.
+
+> 어떤 검색엔진도 페이지 끝까지 가는 검색엔진은 없어요.
+
+> 구글도 20페이지 까지밖에 안 가요. 
+
+재열님의 고민입니다. 
+
+> 우리는 **개의 상품이 있고..... 
+
+> ***존 서비스에서는 각 판매자들이 끝까지 탐색하고 싶어하는 니즈가 있는데.... 
+
+> 이걸 지금 이전 다음 버튼으로 풀고 있고.... Solr 에서는 [CursorMark](https://lucene.apache.org/solr/guide/6_6/pagination-of-results.html) 라는 도구로 풀고 있는데....
+
+> ES에선.... 어떻게 할지.... 넘 어려운감... ^^; 
+
+### 검색엔진이 페이지네이션을 위한 도구가 아닌 이유 
+
+- 검색 결과는 계속 바뀐다. 
+- 검색결과가 정렬된 순서 또한 계속 바뀐다. 
+- 특정 컨텍스트를 검색엔진 안에서 유지시키려면, 그에 수반되는 IO/Memory 등 비용 
+    - ES ```max_result_window``` 설정
+
+
+### Scroll API의 취지 
+
+- 페이지네이션을 위한 도구는 아니다. 
+- 매우 큰 결과 집합을 반복하는데 매우 유용하다
+    - 같은 결과물을 계속 반복적으로 얻고 싶을때....
+    - reindex 해야할 때....
+        - reindex API 쓰는게 나음 
+
+### 요청 예제
+
+```json
+GET mall/_search?scroll=10m
+  {
+  "query" :{
+    "match_all" : {
+      
+    }
+  },
+  
+  "sort": [
+    {
+      "mall_bno": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+```
+
+- 스크롤 파라메터에 시간 단위를 명시해줘야 함
+    - 해당 시간동안 scroll context가 살아있는 것임 
+
+### 응답 예시 
+
+```json
+{
+  "_scroll_id": "DnF1ZXJ5VGhlbkZldGNoBQAAAAAAABBBFkR1d1pfYTc4UUZpMm9ERGlBZEtJSVEAAAAAAAPPBxZ0WVhIY3ViNFFCcTNzRzRUeVRBUU53AAAAAAABzhYWOU5zakJpYVhRcG1XUWJFZWh3WjJYQQAAAAAAA4cAFi1JRWlmTDh6VG42ZERzaU9MTDJURHcAAAAAAAdo7RZnRnhRTjBLRFFtR0ZLYS1ITWR0TTRR",
+  "took": 103,
+  "timed_out": false,
+  "_shards": {
+    "total": 5,
+    "successful": 5,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": 472840,
+    "max_score": null,
+    "hits": [
+      {
+          ...
+```
+
+- ```scroll_id``` : 스크롤 레코드에 사용하는 값. 
+    - 다음 검색에 아래와 같이 전송할 수 있겠음 
+
+    ```json
+    GET _search/scroll?scroll=10m
+    { 
+        "scroll_id": "DnF1ZXJ5VGhlbkZldGNoBQAAAAAAABBBFkR1d1pfYTc4UUZpMm9ERGlBZEtJSVEAAAAAAAPPBxZ0WVhIY3ViNFFCcTNzRzRUeVRBUU53AAAAAAABzhYWOU5zakJpYVhRcG1XUWJFZWh3WjJYQQAAAAAAA4cAFi1JRWlmTDh6VG42ZERzaU9MTDJURHcAAAAAAAdo7RZnRnhRTjBLRFFtR0ZLYS1ITWR0TTRR"
+    }
+    ```
+
+### Search-After
+
+**이거 다음부터 검색해!**
+
+- ```from-size``` : from 까지 모든 검색결과를 연산한 후, 버림 
+    - 성능 매우 나쁨
+    - 따라서 설정값으로 클러스터에 지나친 부하를 주지 않도록 제한하고 있음 
+- Scroll API: Scroll ID가 발급될때마다 검색 컨텍스트가 메모리에 살아 있다. 
+    - 빈번한 유저 요청에 사용할만한 기능이 못 됨 
+
+**답은 서치 애프터 이다.**
+
+
 
