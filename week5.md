@@ -249,4 +249,87 @@ GET mall/doc/212021/_explain
         - ```"weight(mall_nm:**몰 in 3) [PerFieldSimilarity], result of:"```
     - details: explanation 객체의 선택사항 필드
 
-    
+### ```match_all```
+
+- 색인의 모든 도큐먼트를 리턴하는 쿼리 
+
+```json
+GET mall/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+```
+
+- mall 인덱스의 모든 도큐먼트 매칭 
+- 검색결과의 score는 1.0으로 고정됨(계산하지 않는다)
+  - 다른 score가 필요할 경우 ```boost``` 옵션으로 조정 가능 
+
+```json
+GET mall/_search
+{
+  "query" : {
+    "match_all" : {
+      "boost" : 1.2
+    }
+  }
+}
+```
+
+**응답**
+```json
+{
+  "took": 9,
+  "timed_out": false,
+  "_shards": {
+    "total": 5,
+    "successful": 5,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": 472841,
+    "max_score": 1.2,
+    "hits": [
+      {
+        "_index": "mall",
+        "_type": "doc",
+        "_id": "506767",
+        "_score": 1.2,
+        "_source": {
+          ...
+
+```
+
+- 최고 점수가 1.2점, 검색결과의 점수가 1.2점으로 모두 조정된 것을 볼 수 있다. 
+
+### ```boolean```
+
+- 두 개 이상의 검색 조건을 조합하여 검색 결과를 만들어 낸다.
+- 논리 연산을 통해 검색 결과를 만들 수 있음 
+
+#### 사용할 수 있는 논리연산자의 종류 
+
+- ```must``` : **반드시** 도큐먼트가 해당 쿼리를 포함하고 있어야 함 
+  - 검색 스코어에 반영됨
+
+- ```filter``` : **반드시** 도큐먼트가 해당 쿼리를 포함하고 있어야 함
+  - 검색 스코어에 반영 안됨
+  - ES의 필터 기능과 같은 컨텍스트에서 작동함
+    - 점수 무시
+    - 쿼리는 캐싱됨
+
+- ```should``` : **가능한 한** 도큐먼트가 해당 쿼리를 포함하고 있어야 함 
+  - 만약 bool query가 query context에서 실행되고, 
+    - ```must``` 나 ```must not``` 을 포함하고 있으며,
+    - ```should``` 쿼리에는 맞지 않는 경우 
+      - ```must``` 나 ```must not``` 조건과 일치하는 도큐먼트가 검색됨 
+
+  - 만약 쿼리가 filter context에 실행되고 있고, ```must``` 나 ```must not``` 존재하지 않을 시
+    - ```should``` 에 맞는 검색결과만이 응답됨 
+
+  
+
+
+
