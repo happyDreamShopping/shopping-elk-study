@@ -248,3 +248,5 @@ GET mall/doc/212021/_explain
     - description: 매치된 토큰의 문자열 표현
         - ```"weight(mall_nm:**몰 in 3) [PerFieldSimilarity], result of:"```
     - details: explanation 객체의 선택사항 필드
+
+    
