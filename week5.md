@@ -17,6 +17,27 @@
     - ```join``` 모델의 쿼리를 위해 사용
 - 실무적으로 join을 써본 적이 없어서 잘 모르겠습니다.
 
+#### join datatype
+
+```json
+POST join-example/1/1?routing=1
+{
+  "content" : "hello elk study?",
+  "qna_join" : {
+    "name" : "question"
+  }
+}
+
+POST join-example/1/2?routing=2
+{
+  "content" : "hellow. i'm fine.",
+  "qna_join" : {
+    "name" : "answer",
+    "parent" : 1
+  }
+}
+```
+
 
 ### 올바른 쿼리 제안 
 
@@ -240,7 +261,7 @@ GET mall/doc/212021/_explain
 ```
 
 - matched: 도큐먼트가 쿼리에 매치되었는지.
-    - 지금 쿼리가 (term: mall_nm = "켄즈몰") 도큐먼트의 내용과 정확히 일치.
+    - 지금 쿼리가 (term: mall_nm = "**몰") 도큐먼트의 내용과 정확히 일치.
     - 따라서 true
 
 - explanation
@@ -328,6 +349,28 @@ GET mall/_search
 
   - 만약 쿼리가 filter context에 실행되고 있고, ```must``` 나 ```must not``` 존재하지 않을 시
     - ```should``` 에 맞는 검색결과만이 응답됨 
+
+#### 검색해 봅시다
+
+검색에 걸리고싶은 몰 이름: Fo***us
+
+![사내망에서 확인하세요](https://media.oss.navercorp.com/user/10142/files/fe64af52-4a3d-11e9-8fb9-8d55ea538629)
+
+- 몰 등급과 
+- 몰 이름으로 검색해봅시다. 
+
+
+
+#### 참고: Elasticsearch query context : filter context
+
+- query는 *느리다.*
+  - 모든 검색 결과의 스코어 계산 및 소팅: agg 연산 부담 발생
+  - score가 정말 필요한가요? 
+
+- filter는 **빠르다.**
+  - score 계산 안 함. 
+
+
 
   
 
