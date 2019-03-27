@@ -11,9 +11,9 @@
     - 건영님의 졸업작품을 참고한다. 
     - https://www.kaggle.com/stackoverflow/stackoverflow
 
-- 2(공통주제): stack overflow developer survey:https://www.kagglecom/stackoverflow/stack-overflow-208-developer-survey
+- 2(공통주제): stack overflow developer survey
     - agg 등 분류/집계 쿼리 연습에 좋다. 
-
+    - https://www.kaggle.com/stackoverflow/stack-overflow-2018-developer-survey
 
 - 3: reddit comments
     - http://files.pushshift.io/reddit/comments/
