@@ -18,7 +18,7 @@
     - [x] `0409` ~~팀별 실습 회의 - 5회차~~
     - [x] `0416` [6장 텍스트 및 수치형 쿼리 1회차 - 정혁](https://github.com/shopelk/shopping-elk-study/blob/master/week6.md)
     - [x] `0418` [6장 텍스트 및 수치형 쿼리 2회차 - 정혁](https://github.com/shopelk/shopping-elk-study/blob/master/week7.md)
-    - [ ] `NONE` 8장 집계 - 건영 
+    - [x] `0423` 8장 집계 - 건영 
     - [ ] `NONE` 10장 클러스터와 노드 관리 - 슬아
 - **팀별 실습주제**
     - [Stack Overflow Data](https://www.kaggle.com/stackoverflow/stackoverflow) - 건영, 정혁, 휘준
